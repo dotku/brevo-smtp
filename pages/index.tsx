@@ -41,7 +41,7 @@ export default function Home() {
     message: '',
   });
   const [result, setResult] = useState<ResultState>({ message: '', type: '', visible: false });
-  const [settingsResult, setSettingsResult] = useState<ResultState>({ message: '', type: '', visible: false });
+  const [settingsStatus, setSettingsStatus] = useState<ResultState>({ message: '', type: '', visible: false });
   const [envStatus, setEnvStatus] = useState<ResultState>({ message: '', type: '', visible: false });
 
   // Load settings from localStorage on component mount
@@ -121,53 +121,93 @@ export default function Home() {
     }
   };
 
-  // Save settings to localStorage
-  const handleSettingsSubmit = (e: FormEvent) => {
-    e.preventDefault();
+  // Save settings to localStorage and update server
+  const saveSettings = async () => {
+    // Save to localStorage
+    localStorage.setItem('brevoSettings', JSON.stringify(settings));
     
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('brevoSettings', JSON.stringify(settings));
-      
-      setSettingsResult({
-        message: 'Settings saved successfully!',
-        type: 'success',
-        visible: true
-      });
-      
-      setTimeout(() => {
-        setSettingsResult(prev => ({ ...prev, visible: false }));
-      }, 3000);
-    }
-  };
-
-  // Handle email form submission
-  const handleEmailSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+    // Debug log
+    console.log('Saving settings:', JSON.stringify({
+      ...settings,
+      smtpPass: settings.smtpPass ? '***' : '',
+      brevoApiKey: settings.brevoApiKey ? '***' : ''
+    }));
     
-    setResult({
-      message: 'Sending email...',
-      type: '',
+    // Show success message
+    setSettingsStatus({
+      message: 'Settings saved locally. Sending to server...',
+      type: 'success',
       visible: true
     });
     
+    // Create request body with all settings
+    const requestBody = {
+      action: 'updateSettings',
+      smtpHost: settings.smtpHost,
+      smtpPort: settings.smtpPort,
+      smtpUser: settings.smtpUser,
+      smtpPass: settings.smtpPass,
+      fromEmail: settings.fromEmail,
+      fromName: settings.fromName,
+      brevoApiKey: settings.brevoApiKey
+    };
+    
+    console.log('Sending request with body:', JSON.stringify({
+      ...requestBody,
+      smtpPass: requestBody.smtpPass ? 'PRESENT (masked)' : 'NOT PRESENT',
+      brevoApiKey: requestBody.brevoApiKey ? 'PRESENT (masked)' : 'NOT PRESENT'
+    }));
+    
+    // Send settings to server for the current session
     try {
-      // Get settings from localStorage
-      const storedSettings = typeof window !== 'undefined' 
-        ? JSON.parse(localStorage.getItem('brevoSettings') || '{}')
-        : {};
+      const response = await fetch('/api/email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
       
-      // Check if we have the minimum required settings
-      if (!storedSettings.brevoApiKey && envStatus.type === 'error') {
-        setResult({
-          message: 'Error: Missing API key. Please configure settings in the Settings tab.',
+      const data = await response.json();
+      
+      if (data.success) {
+        setSettingsStatus({
+          message: 'Settings saved locally and sent to server for this session.',
+          type: 'success',
+          visible: true
+        });
+      } else {
+        setSettingsStatus({
+          message: `Server update failed: ${data.message}`,
           type: 'error',
           visible: true
         });
-        
-        // Switch to settings tab automatically
-        setActiveTab('settings');
-        return;
       }
+    } catch (error) {
+      console.error('Error updating server settings:', error);
+      setSettingsStatus({
+        message: 'Settings saved locally but server update failed.',
+        type: 'error',
+        visible: true
+      });
+    }
+    
+    // Hide status message after 3 seconds
+    setTimeout(() => {
+      setSettingsStatus(prev => ({ ...prev, visible: false }));
+    }, 3000);
+  };
+
+  // Handle email form submission
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      setResult({
+        message: 'Sending email...',
+        type: 'info',
+        visible: true
+      });
       
       const response = await fetch('/api/email', {
         method: 'POST',
@@ -178,8 +218,14 @@ export default function Home() {
           to: emailForm.to,
           subject: emailForm.subject,
           text: emailForm.message,
-          html: `<p>${emailForm.message.replace(/\n/g, '<br>')}</p>`,
-          settings: storedSettings
+          html: emailForm.message,
+          smtpHost: settings.smtpHost,
+          smtpPort: settings.smtpPort,
+          smtpUser: settings.smtpUser,
+          smtpPass: settings.smtpPass,
+          fromEmail: settings.fromEmail,
+          fromName: settings.fromName,
+          brevoApiKey: settings.brevoApiKey
         }),
       });
       
@@ -187,36 +233,37 @@ export default function Home() {
       
       if (response.ok) {
         setResult({
-          message: `Email sent successfully! Message ID: ${data.messageId}${data.usedClientSettings ? ' (Used your browser settings)' : ''}`,
+          message: 'Email sent successfully!',
           type: 'success',
           visible: true
         });
-        setEmailForm({ to: '', subject: '', message: '' });
+        
+        // Reset form after successful submission
+        setEmailForm({
+          to: '',
+          subject: '',
+          message: '',
+        });
       } else {
-        if (data.needsSettings) {
-          setResult({
-            message: `Error: ${data.error} - ${data.details || ''}`,
-            type: 'error',
-            visible: true
-          });
-          
-          // Switch to settings tab automatically
-          setActiveTab('settings');
-        } else {
-          setResult({
-            message: `Error: ${data.error} - ${data.details || ''}`,
-            type: 'error',
-            visible: true
-          });
-        }
+        setResult({
+          message: `Failed to send email: ${data.error || 'Unknown error'}`,
+          type: 'error',
+          visible: true
+        });
       }
-    } catch (error: any) {
+    } catch (error) {
+      console.error('Error sending email:', error);
       setResult({
-        message: `Error: ${error.message}`,
+        message: 'An error occurred while sending the email.',
         type: 'error',
         visible: true
       });
     }
+    
+    // Hide result message after 5 seconds
+    setTimeout(() => {
+      setResult(prev => ({ ...prev, visible: false }));
+    }, 5000);
   };
 
   // Handle form input changes
@@ -228,6 +275,7 @@ export default function Home() {
   // Handle settings input changes
   const handleSettingsChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    console.log(`Setting ${name} changed to: ${name === 'smtpPass' || name === 'brevoApiKey' ? '***' : value}`);
     setSettings(prev => ({ ...prev, [name]: value }));
   };
 
@@ -264,7 +312,7 @@ export default function Home() {
             </div>
           )}
           
-          <form onSubmit={handleEmailSubmit}>
+          <form onSubmit={handleSubmit}>
             <div className={styles.formGroup}>
               <label htmlFor="to">To:</label>
               <input 
@@ -318,7 +366,7 @@ export default function Home() {
             <h2>Email Service Settings</h2>
             <p>Configure your Brevo email service settings below. These settings will be saved in your browser's localStorage.</p>
             
-            <form onSubmit={handleSettingsSubmit}>
+            <form onSubmit={(e) => { e.preventDefault(); saveSettings(); }}>
               <div className={styles.settingsRow}>
                 <div className={styles.settingsCol}>
                   <div className={styles.formGroup}>
@@ -412,9 +460,9 @@ export default function Home() {
               <button type="submit" className={styles.button}>Save Settings</button>
             </form>
             
-            {settingsResult.visible && (
-              <div className={`${styles.result} ${styles[settingsResult.type]}`}>
-                {settingsResult.message}
+            {settingsStatus.visible && (
+              <div className={`${styles.result} ${styles[settingsStatus.type]}`}>
+                {settingsStatus.message}
               </div>
             )}
           </div>
