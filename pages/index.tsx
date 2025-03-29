@@ -2,6 +2,36 @@ import React, { useState, useEffect, FormEvent, ChangeEvent } from 'react';
 import Head from 'next/head';
 import styles from '../styles/Home.module.css';
 
+// Extend the CSS module types
+declare module '../styles/Home.module.css' {
+  export interface Styles {
+    container: string;
+    main: string;
+    title: string;
+    formGroup: string;
+    button: string;
+    result: string;
+    success: string;
+    error: string;
+    buttonContainer: string;
+    secondaryButton: string;
+    info: string;
+    grid: string;
+    card: string;
+    'show-password-button': string;
+    'password-field-container': string;
+    maskedValue: string;
+    tab: string;
+    tabs: string;
+    active: string;
+    tabContent: string;
+    hidden: string;
+    settingsContainer: string;
+    settingsRow: string;
+    settingsCol: string;
+  }
+}
+
 interface Settings {
   smtpHost: string;
   smtpPort: string;
@@ -25,7 +55,9 @@ interface ResultState {
 }
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState('email');
+  const [activeTab, setActiveTab] = useState<'email' | 'settings'>('email');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
   const [settings, setSettings] = useState<Settings>({
     smtpHost: '',
     smtpPort: '',
@@ -81,7 +113,7 @@ export default function Home() {
   // Check if environment variables are loaded
   const checkEnvironmentStatus = async () => {
     try {
-      const response = await fetch('/api/email');
+      const response = await fetch('/api/route');
       const data = await response.json();
       
       if (!data.envVarsLoaded) {
@@ -121,6 +153,70 @@ export default function Home() {
     }
   };
 
+  // Reset settings to server values
+  const resetToServerSettings = async () => {
+    try {
+      setSettingsStatus({
+        message: 'Fetching settings from server...',
+        type: 'info',
+        visible: true
+      });
+      
+      const response = await fetch('/api/route', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'resetSettings' }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Update settings with server values
+        const serverSettings: Settings = {
+          smtpHost: data.smtpHost || '',
+          smtpPort: data.smtpPort || '',
+          smtpUser: data.smtpUser || '',
+          smtpPass: data.smtpPass || '', // Use actual password from server
+          fromEmail: data.fromEmail || '',
+          fromName: data.fromName || '',
+          brevoApiKey: data.brevoApiKey || '', // Use actual API key from server
+        };
+        
+        // Update local settings
+        setSettings(serverSettings);
+        
+        // Save to localStorage
+        localStorage.setItem('brevoSettings', JSON.stringify(serverSettings));
+        
+        setSettingsStatus({
+          message: 'Settings reset to server values successfully.',
+          type: 'success',
+          visible: true
+        });
+      } else {
+        setSettingsStatus({
+          message: `Failed to fetch settings from server: ${data.message}`,
+          type: 'error',
+          visible: true
+        });
+      }
+    } catch (error) {
+      console.error('Error resetting to server settings:', error);
+      setSettingsStatus({
+        message: 'Error connecting to server to fetch settings.',
+        type: 'error',
+        visible: true
+      });
+    }
+    
+    // Hide status message after 5 seconds
+    setTimeout(() => {
+      setSettingsStatus(prev => ({ ...prev, visible: false }));
+    }, 5000);
+  };
+
   // Save settings to localStorage and update server
   const saveSettings = async () => {
     // Save to localStorage
@@ -135,7 +231,7 @@ export default function Home() {
     
     // Show success message
     setSettingsStatus({
-      message: 'Settings saved locally. Sending to server...',
+      message: 'Settings saved locally. Applying to current request...',
       type: 'success',
       visible: true
     });
@@ -160,7 +256,7 @@ export default function Home() {
     
     // Send settings to server for the current session
     try {
-      const response = await fetch('/api/email', {
+      const response = await fetch('/api/route', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -172,7 +268,7 @@ export default function Home() {
       
       if (data.success) {
         setSettingsStatus({
-          message: 'Settings saved locally and sent to server for this session.',
+          message: 'Settings saved locally and applied for the current request only (not persisted on server).',
           type: 'success',
           visible: true
         });
@@ -186,7 +282,7 @@ export default function Home() {
     } catch (error) {
       console.error('Error updating server settings:', error);
       setSettingsStatus({
-        message: 'Settings saved locally but server update failed.',
+        message: 'Settings saved locally but could not be sent to server.',
         type: 'error',
         visible: true
       });
@@ -209,7 +305,7 @@ export default function Home() {
         visible: true
       });
       
-      const response = await fetch('/api/email', {
+      const response = await fetch('/api/route', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -407,14 +503,24 @@ export default function Home() {
                   
                   <div className={styles.formGroup}>
                     <label htmlFor="smtpPass">SMTP Password:</label>
-                    <input 
-                      type="password" 
-                      id="smtpPass" 
-                      name="smtpPass" 
-                      value={settings.smtpPass}
-                      onChange={handleSettingsChange}
-                      placeholder="8PG***********" 
-                    />
+                    <div className={styles['password-field-container']}>
+                      <input 
+                        type={showPassword ? 'text' : 'password'} 
+                        id="smtpPass" 
+                        name="smtpPass" 
+                        value={settings.smtpPass}
+                        onChange={handleSettingsChange}
+                        placeholder="8PG***********" 
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => setShowPassword(!showPassword)} 
+                        className={styles['show-password-button']}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
                   </div>
                 </div>
                 
@@ -445,19 +551,32 @@ export default function Home() {
                   
                   <div className={styles.formGroup}>
                     <label htmlFor="brevoApiKey">Brevo API Key:</label>
-                    <input 
-                      type="password" 
-                      id="brevoApiKey" 
-                      name="brevoApiKey" 
-                      value={settings.brevoApiKey}
-                      onChange={handleSettingsChange}
-                      placeholder="xke***********" 
-                    />
+                    <div className={styles['password-field-container']}>
+                      <input 
+                        type={showApiKey ? 'text' : 'password'} 
+                        id="brevoApiKey" 
+                        name="brevoApiKey" 
+                        value={settings.brevoApiKey}
+                        onChange={handleSettingsChange}
+                        placeholder="xke***********" 
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => setShowApiKey(!showApiKey)} 
+                        className={styles['show-password-button']}
+                        aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+                      >
+                        {showApiKey ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
               
-              <button type="submit" className={styles.button}>Save Settings</button>
+              <div className={styles['buttonContainer']}>
+                <button type="submit" className={styles.button}>Save Settings</button>
+                <button type="button" className={styles['secondaryButton']} onClick={resetToServerSettings}>Reset to Server Settings</button>
+              </div>
             </form>
             
             {settingsStatus.visible && (
