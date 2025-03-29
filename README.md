@@ -1,37 +1,66 @@
 # Vercel Email Sending Service
 
-A simple email sending service built with Vercel serverless functions and Brevo SMTP.
+A modern email sending service built with Next.js and Brevo SMTP/API.
 
 ## Features
 
-- Serverless API endpoint for sending emails
-- Uses Brevo SMTP for reliable email delivery
-- Simple HTML form for testing the email service
-- Environment-based configuration
+- Next.js API routes for sending emails
+- Uses Brevo API for reliable email delivery
+- React-based UI with a clean, modern interface
+- Client-side settings storage with localStorage as fallback
+- Environment-based configuration with graceful fallbacks
 
 ## Setup
 
 1. Install dependencies:
 
-```bash
-npm install
-```
+   ```bash
+   npm install
+   ```
 
 2. Configure environment variables:
    - Use `.env.local` for local development with real credentials
-   - The sample `.env` file shows the required variables
+   - Use `.env` for default fallback values
+   - Create a `.env.local` file with the following variables:
+
+   ```env
+   SMTP_HOST=smtp-relay.brevo.com
+   SMTP_PORT=587
+   SMTP_USER=your-smtp-username
+   SMTP_PASS=your-smtp-password
+   FROM_EMAIL=your-email@example.com
+   FROM_NAME=Your Name
+   BREVO_API_KEY=your-brevo-api-key
+   ```
 
 3. Run the development server:
 
+   ```bash
+   npm run dev
+   ```
+
+4. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
+
+## Project Structure
+
+- `/pages` - Next.js pages and API routes
+  - `/pages/index.tsx` - Main email sending interface
+  - `/pages/api/email.ts` - API endpoint for sending emails
+- `/styles` - CSS modules and global styles
+- `/public` - Static assets
+
+## Deployment
+
+This project is configured for easy deployment on Vercel:
+
 ```bash
-npm run dev
+npm run build
+vercel
 ```
 
-4. Deploy to Vercel:
+## Client-Side Settings
 
-```bash
-npm run deploy
-```
+If environment variables are not available, the application will prompt users to configure settings through the UI. These settings are stored in localStorage and used as a fallback.
 
 ## API Usage
 
@@ -63,6 +92,7 @@ Response:
 - `SMTP_PASS`: SMTP password
 - `FROM_EMAIL`: Sender email address
 - `FROM_NAME`: Sender name
+- `BREVO_API_KEY`: Brevo API key
 
 ## Security Notes
 
