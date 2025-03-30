@@ -1,4 +1,4 @@
-# Vercel Email Sending Service
+# Next Brevo Email Sending Service
 
 A modern email sending service built with Next.js and Brevo SMTP/API.
 
