@@ -34,21 +34,28 @@ export class BrevoClient {
   async sendTransactionalEmail(options: SendEmailOptions): Promise<any> {
     const url = `${this.baseUrl}/smtp/email`;
     
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'api-key': this.apiKey
-      },
-      body: JSON.stringify(options)
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Brevo API error: ${response.status} ${errorText}`);
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'api-key': this.apiKey
+        },
+        body: JSON.stringify(options)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Brevo API error: ${response.status} ${errorData.message || response.statusText}`);
+      }
+      
+      return response.json();
+    } catch (error) {
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Unknown error occurred');
     }
-    
-    return response.json();
   }
 }
