@@ -81,14 +81,14 @@ export async function sendEmailSmtp(
       await logStateChange('email_error', {
         requestId,
         method: 'smtp',
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       });
     }
     
     return {
       success: false,
-      message: `Failed to send email: ${error.message}`,
-      error
+      message: `Failed to send email: ${error instanceof Error ? error.message : String(error)}`,
+      error: error instanceof Error ? error : new Error(String(error))
     };
   }
 }
@@ -167,14 +167,14 @@ export async function sendEmailBrevo(
       await logStateChange('email_error', {
         requestId,
         method: 'brevo',
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       });
     }
     
     return {
       success: false,
-      message: `Failed to send email via Brevo API: ${error.message}`,
-      error
+      message: `Failed to send email via Brevo API: ${error instanceof Error ? error.message : String(error)}`,
+      error: error instanceof Error ? error : new Error(String(error))
     };
   }
 }
