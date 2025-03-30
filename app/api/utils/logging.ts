@@ -61,11 +61,11 @@ export async function logStateChange(type: string, data: any) {
     
     // Add the log entry to the list
     const logJson = JSON.stringify(logEntry);
-    await redis.rPush(logKey, logJson);
-    await redis.rPush(recentKey, logJson);
+    await redis.rpush(logKey, logJson);
+    await redis.rpush(recentKey, logJson);
     
     // Trim the list to keep only the most recent 100 entries
-    await redis.lTrim(recentKey, -100, -1);
+    await redis.ltrim(recentKey, -100, -1);
     
     return true;
   } catch (error) {
