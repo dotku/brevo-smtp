@@ -1,4 +1,4 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from 'redis';
 
 // Define the StateLogEntry type
@@ -34,21 +34,19 @@ async function getRedisClient() {
   return redisClient;
 }
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+export async function GET(request: NextRequest) {
   // Check if we're in development mode
   const isDevelopment = process.env.NODE_ENV === 'development';
   
   // Verify the request is from Vercel Cron (skip in development mode if accessing from localhost)
-  const authHeader = req.headers.authorization;
-  const isLocalhost = req.headers.host?.includes('localhost') || req.headers.host?.includes('127.0.0.1');
+  const authHeader = request.headers.get('authorization');
+  const host = request.headers.get('host') || '';
+  const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
   
   if (!isDevelopment || !isLocalhost) {
     // In production or when not accessing from localhost, require authorization
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return res.status(401).json({ success: false, message: 'Unauthorized' });
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     }
   }
 
@@ -114,7 +112,7 @@ export default async function handler(
     
     await redis.set('state-logs:recent', JSON.stringify(recentLogs));
     
-    return res.status(200).json({ 
+    return NextResponse.json({ 
       success: true, 
       message: 'Log cleanup completed successfully',
       deletedKeys,
@@ -122,10 +120,10 @@ export default async function handler(
     });
   } catch (error) {
     console.error('Error cleaning up logs:', error);
-    return res.status(500).json({ 
+    return NextResponse.json({ 
       success: false, 
       message: 'Failed to clean up logs',
       error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    }, { status: 500 });
   }
 }

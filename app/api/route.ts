@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 /**
- * GET handler for API health check
+ * API health check endpoint
  * Returns basic API status information
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   return NextResponse.json({
     success: true,
     message: 'API is running',
@@ -12,7 +12,7 @@ export async function GET() {
     endpoints: [
       { path: '/api/email', description: 'Email sending API' },
       { path: '/api/log-state', description: 'Backend logging API' },
-      { path: '/api/cron/route', description: 'Cron job for log cleanup' }
+      { path: '/api/cron/cleanup-logs', description: 'Cron job for log cleanup' }
     ]
   });
 }

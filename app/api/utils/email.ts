@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
-import SibApiV3Sdk from 'sib-api-v3-sdk';
 import { getEmailSettings } from './environment';
 import { logStateChange } from './logging';
+import { BrevoClient } from './brevo-client';
 
 /**
  * Send email using SMTP
@@ -122,13 +122,8 @@ export async function sendEmailBrevo(
       });
     }
     
-    // Configure API key authorization
-    const defaultClient = SibApiV3Sdk.ApiClient.instance;
-    const apiKey = defaultClient.authentications['api-key'];
-    apiKey.apiKey = settings.brevoApiKey;
-    
-    // Create API instance
-    const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+    // Create Brevo client with API key
+    const brevoClient = new BrevoClient(settings.brevoApiKey);
     
     // Create sender
     const sender = {
@@ -141,16 +136,14 @@ export async function sendEmailBrevo(
       email: to
     };
     
-    // Create email
-    const email = new SibApiV3Sdk.SendSmtpEmail();
-    email.sender = sender;
-    email.to = [recipient];
-    email.subject = subject;
-    email.htmlContent = html;
-    email.textContent = text;
-    
     // Send email
-    const response = await apiInstance.sendTransacEmail(email);
+    const response = await brevoClient.sendTransactionalEmail({
+      sender,
+      to: [recipient],
+      subject,
+      htmlContent: html,
+      textContent: text
+    });
     
     // Log email success
     if (requestId) {
